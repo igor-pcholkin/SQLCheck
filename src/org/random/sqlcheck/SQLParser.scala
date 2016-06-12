@@ -1,5 +1,7 @@
 
 
+package org.random.sqlcheck
+
 import scala.util.parsing.combinator._
 
 object SQLParser extends JavaTokenParsers with ParserUtils {

@@ -1,3 +1,5 @@
+package org.random.sqlcheck
+
 import scala.util.parsing.combinator._
 
 object CSVParser extends JavaTokenParsers with ParserUtils {

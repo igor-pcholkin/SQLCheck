@@ -1,6 +1,7 @@
 
 
-import scala.util.parsing.combinator.Parsers
+package org.random.sqlcheck
+
 import scala.util.parsing.combinator.JavaTokenParsers
 
 trait ParserUtils { self : JavaTokenParsers =>

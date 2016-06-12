@@ -1,5 +1,7 @@
 
 
+package org.random.sqlcheck
+
 trait Value[T] {
   def value: T
   def >(otherValue: String): Boolean
