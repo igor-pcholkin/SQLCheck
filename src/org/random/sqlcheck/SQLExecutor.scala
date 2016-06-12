@@ -10,7 +10,8 @@ object SQLExecutor {
   def execute(db: DB, select: Select) = {
     val startTable = select.tables(0)
     val inputResultSet = db(startTable)
-    val conditionsCheck = select.conditions.withDefaultValue(Nil)(startTable).foldLeft((rs: EResultSet) => rs)(_ compose _)
+    val conditions = select.conditions.withDefaultValue(select.conditions.getOrElse(None, Nil))(Some(startTable))
+    val conditionsCheck = conditions.foldLeft((rs: EResultSet) => rs)(_ compose _)
     val outputResultSet = conditionsCheck(EResultSet(inputResultSet, select, db))
     outputResultSet.rs
   }

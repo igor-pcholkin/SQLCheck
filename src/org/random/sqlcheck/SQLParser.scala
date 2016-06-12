@@ -16,7 +16,7 @@ object SQLParser extends JavaTokenParsers with ParserUtils {
   case class Field(name: String, alias: Option[String])
   case class WhereCondition(field: String, value: String)
   case class EResultSet(rs: ResultSet, select: Select, db: DB)
-  case class Select(fields: Seq[Field], tables: Seq[String], conditions: Map[String, Seq[EResultSet => EResultSet]])
+  case class Select(fields: Seq[Field], tables: Seq[String], conditions: Map[Option[String], Seq[EResultSet => EResultSet]])
   
   val NoRow = Seq()
 
@@ -58,7 +58,7 @@ object SQLParser extends JavaTokenParsers with ParserUtils {
     rowA(field).toString
   }
 
-  lazy val column = (ident <~ ".") ~ ident ^^ { case t ~ f => (t, f) }
+  lazy val column = (ident <~ ".").? ~ ident ^^ { case t ~ f => (t, f) }
   
   lazy val equal = (column <~ "=") ~ value ^^ {
     case (table, field) ~ value => (table, (ers: EResultSet) => ers.copy(rs = ers.rs.filter { row =>
@@ -72,7 +72,7 @@ object SQLParser extends JavaTokenParsers with ParserUtils {
     val (table2, field2) = column2
     (table, (ers: EResultSet) => ers.copy(rs = ers.rs.flatMap { row =>
       val rv = rvalue(row, field, ers)
-      val rs2 = ers.db(table2)
+      val rs2 = ers.db(table2.get)
       rs2.find( row2 => rv == rvalue(row2, field2, ers)) match {
         case Some(row2) => Seq(row ++ row2)
         case None => NoRow 
@@ -89,17 +89,19 @@ object SQLParser extends JavaTokenParsers with ParserUtils {
   }
 
   lazy val like = (column <~ "like".ic) ~ aqStringValue ^^ {
-    case (table, field) ~ pattern => (table, (ers: EResultSet) => ers.copy(rs = ers.rs.filter { row =>
-      val rowStrValue = rvalue(row, field, ers)
-      if (pattern.startsWith("%") && pattern.endsWith("%"))
-        rowStrValue.contains(pattern.substring(1, pattern.length - 1))
-      else if (pattern.startsWith("%"))
-        rowStrValue.endsWith(pattern.substring(1))
-      else if (pattern.endsWith("%"))
-        rowStrValue.startsWith(pattern.substring(0, pattern.length - 1))
-      else
-        true
-    }))
+    case (table, field) ~ pattern =>
+      (table, (ers: EResultSet) =>
+        ers.copy(rs = ers.rs.filter { row =>
+          val rowStrValue = rvalue(row, field, ers)
+          if (pattern.startsWith("%") && pattern.endsWith("%"))
+            rowStrValue.contains(pattern.substring(1, pattern.length - 1))
+          else if (pattern.startsWith("%"))
+            rowStrValue.endsWith(pattern.substring(1))
+          else if (pattern.endsWith("%"))
+            rowStrValue.startsWith(pattern.substring(0, pattern.length - 1))
+          else
+            true
+        }))
   }
 
   lazy val value = aqStringValue ^^ { case sv => StringValue(sv) } | decimalNumber ^^ { case dn => NumberValue(dn.toDouble) }

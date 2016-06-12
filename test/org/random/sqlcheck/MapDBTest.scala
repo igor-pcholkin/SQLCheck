@@ -23,7 +23,7 @@ class MapDBTest extends WordSpecLike with MustMatchers with DBCreator {
       val resultSet = executeSelect(db, """select distinct id, friendlyName as 'name' from customers where customers.id > 2""" )
       
       resultSet.map { row =>
-        println(s"""${row("id")}: ${row("name")}""")
+        info(s"""${row("id")}: ${row("name")}""")
       }
       
       resultSet.length mustBe 2
