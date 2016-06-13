@@ -14,10 +14,10 @@ class SQLTest extends WordSpecLike with MustMatchers with DBCreator {
   "SQLCheck" should {
     "parse and execute select statement with join and like" in {
       val resultSet = executeSelect(db, 
-          """select * from locations, gdp where locations.name like "L%" AND locations.name=gdp.country""")
+          """select * from locations as l, gdp as g where locations.name like "L%" AND locations.name=gdp.country""")
       
       resultSet.map { row =>
-        info(s"""${row("name")}, ${row("latitude")}, ${row("longitude")}, ${row("GDP-per-capita ($; 2012)")}""")
+        info(s"""${row("l.name")}, ${row("l.latitude")}, ${row("l.longitude")}, ${row("g.GDP-per-capita ($; 2012)")}""")
       }
       
       resultSet.length mustBe 3
@@ -29,7 +29,7 @@ class SQLTest extends WordSpecLike with MustMatchers with DBCreator {
 
       info(f"${"Country"}%20s | ${"GDP"}%8s \n")
       resultSet.map { row =>
-        info(f"""${row("country")}%20s | ${row("GDP-per-capita ($; 2012)")}%8s""")
+        info(f"""${row("gdp.country")}%20s | ${row("gdp.GDP-per-capita ($; 2012)")}%8s""")
       }
 
       resultSet.length mustBe 1
@@ -37,10 +37,10 @@ class SQLTest extends WordSpecLike with MustMatchers with DBCreator {
     
     "parse and execute select statement with omitted table prefix for fields in where clause" in {
       val resultSet = executeSelect(db, 
-          """select * from locations where name like "A%"""")
+          """select * from locations as l where name like "A%"""")
       
       resultSet.map { row =>
-        info(s"""${row("name")}""")
+        info(s"""${row("l.name")}""")
       }
       
       resultSet.length mustBe 15
