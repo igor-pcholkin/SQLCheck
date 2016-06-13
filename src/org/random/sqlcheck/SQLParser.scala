@@ -21,45 +21,45 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
   
   val NoRow = Seq()
   
-  lazy val select =
+  def select =
     (("SELECT".ic ~ "DISTINCT".ic.?) ~> fields) ~
       ("FROM".ic ~> tables) ~
       ("WHERE".ic ~> whereConditions) ^^ {
         case fields ~ tables ~ wheres => Select(fields, tables, wheres)
       }
 
-  lazy val fields = rep1sep(fieldSpec, ",")
+  def fields = rep1sep(fieldSpec, ",")
 
-  lazy val fieldSpec = field | fieldAll
+  def fieldSpec = field | fieldAll
 
-  lazy val field: Parser[Field] = (fieldName ~ ("AS".ic ~> fieldName).?) ^^ {
+  def field: Parser[Field] = (fieldName ~ ("AS".ic ~> fieldName).?) ^^ {
     case f ~ a => Field(f, a)
   }
 
-  lazy val fieldName = aqStringValue | ident
+  def fieldName = aqStringValue | ident
 
-  lazy val fieldAll = "*" ^^^ Field("*", None)
+  def fieldAll = "*" ^^^ Field("*", None)
 
-  lazy val tables = rep1sep(table, ",")
+  def tables = rep1sep(table, ",")
   
-  lazy val table = (ident ~ ("AS".ic ~> ident).?) ^^ {
+  def table = (ident ~ ("AS".ic ~> ident).?) ^^ {
     case t ~ a => Table(t, a)
   }
 
-  lazy val whereConditions = rep1sep(whereCondition, "AND".ic) ^^ {
+  def whereConditions = rep1sep(whereCondition, "AND".ic) ^^ {
     case clist =>
       clist.flatten.groupBy(_._1).map { case (n, vlist) =>
         (n, vlist map (_._2))
       }
   }
 
-  lazy val whereCondition: Parser[Seq[(Option[String], EResultSet => EResultSet)]] = joins | operation ^^ { case op => Seq(op) } 
+  def whereCondition = joins | operation ^^ { case op => Seq(op) } 
   
-  lazy val operation = equal | like | greater | less
+  def operation = equal | like | greater | less
 
-  lazy val column = (ident <~ ".").? ~ ident ^^ { case t ~ f => (t, f) }
+  def column = (ident <~ ".").? ~ ident ^^ { case t ~ f => (t, f) }
 
-  lazy val equal = (column <~ "=") ~ value ^^ {
+  def equal = (column <~ "=") ~ value ^^ {
     case (otable, field) ~ value =>
       (otable, (ers: EResultSet) => filterValues(otable, ers) { row =>
         val rv = rvalue(row, field, ers)
@@ -67,26 +67,26 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
       })
   }
 
-  lazy val joins: Parser[Seq[(Option[String], EResultSet => EResultSet)]] = (column <~ "=") ~ column ^^ { case column1 ~ column2 => 
+  def joins: Parser[Seq[(Option[String], EResultSet => EResultSet)]] = (column <~ "=") ~ column ^^ { case column1 ~ column2 => 
     val (otable, field) = column1
     val (otable2, field2) = column2
     Seq((otable, (ers: EResultSet) => joinTables(ers, column1, column2)), 
         (otable2, (ers: EResultSet) => joinTables(ers, column2, column1)))
   }
   
-  lazy val greater = (column <~ ">") ~ value ^^ {
+  def greater = (column <~ ">") ~ value ^^ {
     case (otable, field) ~ value => (otable, (ers: EResultSet) => filterValues(otable, ers) { row =>
       value < rvalue(row, field, ers) 
     })
   }
 
-  lazy val less = (column <~ "<") ~ value ^^ {
+  def less = (column <~ "<") ~ value ^^ {
     case (otable, field) ~ value => (otable, (ers: EResultSet) => filterValues(otable, ers) { row => 
       value > rvalue(row, field, ers) 
     })
   }
 
-  lazy val like = (column <~ "like".ic) ~ aqStringValue ^^ {
+  def like = (column <~ "like".ic) ~ aqStringValue ^^ {
     case (otable, field) ~ pattern =>
       (otable, (ers: EResultSet) =>
         filterValues(otable, ers) { row =>
@@ -102,5 +102,5 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
         })
   }
 
-  lazy val value = aqStringValue ^^ { case sv => StringValue(sv) } | decimalNumber ^^ { case dn => NumberValue(dn.toDouble) }
+  def value = aqStringValue ^^ { case sv => StringValue(sv) } | decimalNumber ^^ { case dn => NumberValue(dn.toDouble) }
 }
