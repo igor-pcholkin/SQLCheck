@@ -14,7 +14,7 @@ class SQLTest extends WordSpecLike with MustMatchers with DBCreator {
   "SQLCheck" should {
     "parse and execute select statement with join and like" in {
       val resultSet = executeSelect(db, 
-          """select * from locations as l, gdp as g where locations.name like "L%" AND locations.name=gdp.country""")
+          """select * from locations as l, gdp as g where locations.name like "L%" AND locations.name=g.country""")
       
       resultSet.map { row =>
         info(s"""${row("l.name")}, ${row("l.latitude")}, ${row("l.longitude")}, ${row("g.GDP-per-capita ($; 2012)")}""")
@@ -25,11 +25,11 @@ class SQLTest extends WordSpecLike with MustMatchers with DBCreator {
 
     "parse and execute select statement with comparison operations" in {
       val resultSet = executeSelect(db, 
-          """select name, "GDP-per-capita ($; 2012)" as gdp from gdp where gdp.gdp > 18000 and gdp.gdp < 20000""")
+          """select country, "GDP-per-capita ($; 2012)" as gdp from gdp where gdp.gdp > 18000 and gdp.gdp < 20000""")
 
       info(f"${"Country"}%20s | ${"GDP"}%8s \n")
       resultSet.map { row =>
-        info(f"""${row("gdp.country")}%20s | ${row("gdp.GDP-per-capita ($; 2012)")}%8s""")
+        info(f"""${row("country")}%20s | ${row("gdp")}%8s""")
       }
 
       resultSet.length mustBe 1

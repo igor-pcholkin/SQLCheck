@@ -18,10 +18,10 @@ class MapDBTest extends WordSpecLike with MustMatchers with DBCreator {
           Map("id" -> 3, "name" -> "George Cloony"),
           Map("id" -> 4, "name" -> "Samantha Fox")))
 
-      val resultSet = executeSelect(db, """select * from people where people.id < 3""")
+      val resultSet = executeSelect(db, """select id, name from people where id < 3""")
 
       resultSet.map { row =>
-        info(s"""${row("people.id")}: ${row("people.name")}""")
+        info(s"""${row("id")}: ${row("name")}""")
       }
 
       resultSet.length mustBe 2
@@ -47,10 +47,11 @@ class MapDBTest extends WordSpecLike with MustMatchers with DBCreator {
             Map("id" -> 1, "pid" -> 3, "age" -> 58),
             Map("id" -> 2, "pid" -> 4, "age" -> 47)))
 
-      val resultSet = executeSelect(db, """select * from people AS p, address AS a, age where people.id = address.pid AND age.pid=people.id""")
+      val resultSet = executeSelect(db, """select * from people AS p, address AS ad, age
+        where p.id = ad.pid AND age.pid=p.id""")
 
       resultSet.map { row =>
-        info(s"""${row("p.id")}: ${row("p.name")}, ${row("a.city")}, ${row("age.age")}""")
+        info(s"""${row("p.id")}: ${row("p.name")}, ${row("ad.city")}, ${row("age.age")}""")
       }
 
       resultSet.length mustBe 2
