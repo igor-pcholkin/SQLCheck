@@ -45,10 +45,7 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
   }
 
   def whereConditions = rep1sep(whereCondition, "AND".ic) ^^ {
-    case filters =>
-      filters.flatten.groupBy(_._1).map { case (tableName, tableFilters) =>
-        (tableName, tableFilters map (_._2))
-      }
+    case filters => groupedByTable(filters)
   }
 
   def whereCondition = joins | operation ^^ { case op => Seq(op) } 

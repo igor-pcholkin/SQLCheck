@@ -4,6 +4,13 @@ trait SQLParserHelpers {
   import SQLParser._
   
   val NoRow = Seq()
+
+  def groupedByTable(filters: List[Seq[(Option[String], SQLParser.EResultSet => SQLParser.EResultSet)]]) = {
+    filters.flatten.groupBy(_._1).map {
+      case (tableName, tableFilters) =>
+        (tableName, tableFilters map (_._2))
+    }
+  }
   
   def rvalue(row: Row, field: String, ers: EResultSet) = {
     val rowA = row.withDefault { alias =>
