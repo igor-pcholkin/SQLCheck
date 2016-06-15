@@ -12,12 +12,11 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
   type Row = Map[String, Any]
   type TRow = Map[String, Row]
   type ResultSet = Seq[TRow]
-  type QBoundValues = List[Value[Any]]
 
   case class Field(name: String, alias: Option[String])
   case class Table(name: String, alias: Option[String])
   case class WhereCondition(field: String, value: String)
-  case class EResultSet(rs: ResultSet, select: Select, db: DB, boundValues: QBoundValues)
+  case class EResultSet(rs: ResultSet, select: Select, db: DB)
   case class Select(fields: Seq[Field], tables: Seq[Table], conditions: Map[Option[String], Seq[EResultSet => EResultSet]])
   
   def select =
@@ -103,8 +102,6 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
   }
 
   def value = aqStringValue ^^ { case sv => StringValue(sv) } | 
-              decimalNumber ^^ { case dn => NumberValue(dn.toDouble) } | 
-              boundVariable ^^ { case name => QBoundVariable() }
+              decimalNumber ^^ { case dn => NumberValue(dn.toDouble) }
               
-  def boundVariable = "?"            
 }

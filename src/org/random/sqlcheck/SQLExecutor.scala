@@ -14,20 +14,10 @@ object SQLExecutor {
     val sc = select.conditions
     val conditions = sc.withDefault { _ => sc.getOrElse(startTableAlias, sc.getOrElse(None, Nil)) } (Some(startTableName))
     val conditionsCheck = conditions.foldLeft((rs: EResultSet) => rs)(_ compose _)
-    val boundValues = bindValues(oBoundValues)
-    val outputResultSet = conditionsCheck(EResultSet(inputResultSet, select, db, boundValues.toList))
+    val outputResultSet = conditionsCheck(EResultSet(inputResultSet, select, db))
     project(outputResultSet)
   }  
 
-  def bindValues(oBoundValues: Option[Seq[Any]]) = {
-    oBoundValues.getOrElse(List[Any]()) map { value =>
-      value match {
-          case s: String => StringValue(s.toString())
-          case d@_ => NumberValue(d.toString.toDouble)
-        }
-    }
-  }
-  
   def project(outputResultSet: EResultSet): Seq[Row] = {
     outputResultSet.rs.map { trow =>
       trow.foldLeft(Map[String, Any]())((crow, t1row) => {
@@ -69,11 +59,23 @@ object SQLExecutor {
   }
   
   def executeSelect(db: DB, select: String, oBoundValues: Option[Seq[Any]] = None): Seq[Row] = {
-    SQLParser.parseAll(SQLParser.select, select) match {
+    val boundSelect = bindValues(select, oBoundValues)
+    SQLParser.parseAll(SQLParser.select, boundSelect) match {
       case SQLParser.Success(sel, _) => execute(db, sel, oBoundValues)
       case ex@_ =>
         println(ex)
         emptyRS
+    }
+  }
+
+  def bindValues(select: String, oBoundValues: Option[Seq[Any]] = None) = {
+    oBoundValues match {
+      case None => select
+      case Some(boundValues) => 
+        boundValues.foldLeft(select)((select, value) => {
+        val qIndex = select.indexOf("?")
+        s"""${select.substring(0, qIndex)}'${value.toString}'${select.substring(qIndex + 1)}"""
+      })
     }
   }
   
