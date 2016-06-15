@@ -32,8 +32,8 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
 
   def fieldSpec = field | fieldAll
 
-  def field: Parser[Field] = (fieldName ~ ("AS".ic ~> fieldName).?) ^^ {
-    case f ~ a => Field(f, a)
+  def field = (fieldName ~ ("AS".ic ~> fieldName).?) ^^ {
+    case fieldName ~ alias => Field(fieldName, alias)
   }
 
   def fieldName = aqStringValue | ident
@@ -43,53 +43,62 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
   def tables = rep1sep(table, ",")
   
   def table = (ident ~ ("AS".ic ~> ident).?) ^^ {
-    case t ~ a => Table(t, a)
+    case tableName ~ alias => Table(tableName, alias)
   }
 
   def whereConditions = rep1sep(whereCondition, "AND".ic) ^^ {
-    case clist =>
-      clist.flatten.groupBy(_._1).map { case (n, vlist) =>
-        (n, vlist map (_._2))
+    case filters =>
+      filters.flatten.groupBy(_._1).map { case (tableName, tableFilters) =>
+        (tableName, tableFilters map (_._2))
       }
   }
 
   def whereCondition = joins | operation ^^ { case op => Seq(op) } 
   
-  def operation = equal | like | greater | less
+  def operation = equal | not_equal | like | greater | less | ge | le
 
-  def column = (ident <~ ".").? ~ ident ^^ { case t ~ f => (t, f) }
+  def column = (ident <~ ".").? ~ ident ^^ { case oTable ~ cName => (oTable, cName) }
 
+  def joins = (column <~ "=") ~ column ^^ { case column1 ~ column2 => 
+    Seq(joinTables(column1, column2), joinTables(column2, column1))
+  }
+  
   def equal = (column <~ "=") ~ value ^^ {
-    case (otable, field) ~ value =>
-      (otable, (ers: EResultSet) => filterValues(otable, ers) { row =>
-        val rv = rvalue(row, field, ers)
-        rv == value.toString
-      })
+    case (otable, field) ~ value => filterValues(otable) { case (row, ers) => rvalue(row, field, ers) == value.toString }
   }
 
-  def joins: Parser[Seq[(Option[String], EResultSet => EResultSet)]] = (column <~ "=") ~ column ^^ { case column1 ~ column2 => 
-    val (otable, field) = column1
-    val (otable2, field2) = column2
-    Seq((otable, (ers: EResultSet) => joinTables(ers, column1, column2)), 
-        (otable2, (ers: EResultSet) => joinTables(ers, column2, column1)))
+  def not_equal = (column <~ ("!=" | "<>")) ~ value ^^ {
+    case (otable, field) ~ value => filterValues(otable) { case (row, ers) => rvalue(row, field, ers) != value.toString }
   }
   
   def greater = (column <~ ">") ~ value ^^ {
-    case (otable, field) ~ value => (otable, (ers: EResultSet) => filterValues(otable, ers) { row =>
-      value < rvalue(row, field, ers) 
-    })
+    case (otable, field) ~ value => filterValues(otable) { case (row, ers) => value < rvalue(row, field, ers) }
   }
 
   def less = (column <~ "<") ~ value ^^ {
-    case (otable, field) ~ value => (otable, (ers: EResultSet) => filterValues(otable, ers) { row => 
-      value > rvalue(row, field, ers) 
-    })
+    case (otable, field) ~ value => filterValues(otable) { case (row, ers) => value > rvalue(row, field, ers) }
+  }
+
+  def ge = (column <~ ">=") ~ value ^^ {
+    case (otable, field) ~ value => filterValues(otable) {
+      case (row, ers) =>
+        val rv = rvalue(row, field, ers)
+        value == rv.toString || value < rv
+    }
+  }
+
+  def le = (column <~ "<=") ~ value ^^ {
+    case (otable, field) ~ value => filterValues(otable) {
+      case (row, ers) =>
+        val rv = rvalue(row, field, ers)
+        value == rv || value > rv
+    }
   }
 
   def like = (column <~ "like".ic) ~ aqStringValue ^^ {
     case (otable, field) ~ pattern =>
-      (otable, (ers: EResultSet) =>
-        filterValues(otable, ers) { row =>
+      filterValues(otable) {
+        case (row, ers) =>
           val rowStrValue = rvalue(row, field, ers)
           if (pattern.startsWith("%") && pattern.endsWith("%"))
             rowStrValue.contains(pattern.substring(1, pattern.length - 1))
@@ -99,7 +108,7 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
             rowStrValue.startsWith(pattern.substring(0, pattern.length - 1))
           else
             true
-        })
+      }
   }
 
   def value = aqStringValue ^^ { case sv => StringValue(sv) } | decimalNumber ^^ { case dn => NumberValue(dn.toDouble) }

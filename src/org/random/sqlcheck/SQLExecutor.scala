@@ -61,12 +61,11 @@ object SQLExecutor {
   def executeSelect(db: DB, select: String): Seq[Row] = {
     SQLParser.parseAll(SQLParser.select, select) match {
       case SQLParser.Success(sel, _) => execute(db, sel)
-      case ex@_ => emptyRS(ex)
+      case ex@_ =>
+        println(ex)
+        emptyRS
     }
   }
   
-  def emptyRS(ex: Any) = {
-    println(ex)
-    Seq[TRow]()
-  }
+  lazy val emptyRS = Seq[TRow]()
 }

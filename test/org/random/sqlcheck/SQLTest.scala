@@ -27,21 +27,44 @@ class SQLTest extends WordSpecLike with MustMatchers with DBCreator {
       val resultSet = executeSelect(db, 
           """select country, "GDP-per-capita ($; 2012)" as gdp from gdp where gdp.gdp > 18000 and gdp.gdp < 20000""")
 
-      info(f"${"Country"}%20s | ${"GDP"}%8s \n")
+      resultSet.length mustBe 1
+    }
+
+    "parse and execute select statement with comparison operations 2" in {
+      val resultSet = executeSelect(db, 
+          """select country, "GDP-per-capita ($; 2012)" as gdp from gdp where gdp.gdp >= 18000 and gdp.gdp <= 20000""")
+
+      resultSet.length mustBe 1
+    }
+    
+    "parse and execute select statement with = operation" in {
+      val resultSet = executeSelect(db, 
+          """select country, "GDP-per-capita ($; 2012)" as gdp from gdp where gdp = 46720.36""")
+
       resultSet.map { row =>
-        info(f"""${row("country")}%20s | ${row("gdp")}%8s""")
+        info(s"""${row("country")}""")
       }
 
       resultSet.length mustBe 1
+    }
+
+    "parse and execute select statement with != operation" in {
+      val resultSet = executeSelect(db, 
+          """select country, "GDP-per-capita ($; 2012)" as gdp from gdp where gdp != 46720.36""")
+
+      resultSet.length mustBe 59
+    }
+
+    "parse and execute select statement with <> operation" in {
+      val resultSet = executeSelect(db, 
+          """select country, "GDP-per-capita ($; 2012)" as gdp from gdp where gdp <> 46720.36""")
+
+      resultSet.length mustBe 59
     }
     
     "parse and execute select statement with omitted table prefix for fields in where clause" in {
       val resultSet = executeSelect(db, 
           """select * from locations as l where name like "A%"""")
-      
-      resultSet.map { row =>
-        info(s"""${row("l.name")}""")
-      }
       
       resultSet.length mustBe 15
     }

@@ -19,26 +19,29 @@ trait SQLParserHelpers {
       case None => trow.head._2
     }
   }
-  
-  def filterValues(otable: Option[String], ers: EResultSet)(filter: Row => Boolean) = {
-    ers.copy(rs = ers.rs.filter { trow => 
-      val row = getRow(otable, trow, ers)
-      filter(row)
-    })
+
+  def filterValues(otable: Option[String])(filter: (Row, EResultSet) => Boolean) = {
+    (otable, (ers: EResultSet) =>
+      ers.copy(rs = ers.rs.filter { trow =>
+        val row = getRow(otable, trow, ers)
+        filter(row, ers)
+      }))
   }
-  
-  def joinTables(ers: EResultSet, column1: (Option[String], String), column2: (Option[String], String)) = {
+
+  def joinTables(column1: (Option[String], String), column2: (Option[String], String)) = {
     val (otable, field) = column1
     val (otable2, field2) = column2
-    val table2 = getTableNameInDB(otable2.get, ers)
-    val rs2 = ers.db(table2)
-    ers.copy(rs = ers.rs.flatMap { trow =>
-      val row = getRow(otable, trow, ers)
-      val rv = rvalue(row, field, ers)
-      rs2.find( row2 => rv == rvalue(row2, field2, ers)) match {
-        case Some(row2) => Seq(trow + (table2 -> row2))
-        case None => NoRow 
-      }
+    (otable, (ers: EResultSet) => {
+      val table2 = getTableNameInDB(otable2.get, ers)
+      val rs2 = ers.db(table2)
+      ers.copy(rs = ers.rs.flatMap { trow =>
+        val row = getRow(otable, trow, ers)
+        val rv = rvalue(row, field, ers)
+        rs2.find(row2 => rv == rvalue(row2, field2, ers)) match {
+          case Some(row2) => Seq(trow + (table2 -> row2))
+          case None       => NoRow
+        }
+      })
     })
   }
   
