@@ -7,7 +7,7 @@ import SQLParser.EResultSet
 object SQLExecutor {
   import SQLParser._
 
-  def execute(db: DB, select: Select, oBoundValues: Option[Seq[Any]]): Seq[Row] = {
+  def doExecute(db: DB, select: Select): Seq[Row] = {
     val startTableName = select.tables(0).name
     val startTableAlias = select.tables(0).alias
     val inputResultSet = db(startTableName).map(row => Map(startTableName -> row))
@@ -58,25 +58,42 @@ object SQLExecutor {
     }
   }
   
-  def executeSelect(db: DB, select: String, oBoundValues: Option[Seq[Any]] = None): Seq[Row] = {
-    val boundSelect = bindValues(select, oBoundValues)
-    SQLParser.parseAll(SQLParser.select, boundSelect) match {
-      case SQLParser.Success(sel, _) => execute(db, sel, oBoundValues)
+  def executeSelect(db: DB, select: String, boundValues: Seq[Any]): Seq[Row] = {
+    val boundSelect = bindValues(select, boundValues)
+    execute(db, boundSelect)
+  }
+
+  def executeSelect(db: DB, select: String, boundValues: Map[String, Any]): Seq[Row] = {
+    val boundSelect = bindValues(select, boundValues)
+    execute(db, boundSelect)
+  }
+  
+  def executeSelect(db: DB, select: String): Seq[Row] = {
+    execute(db, select)
+  }
+  
+  def execute(db: DB, select: String) = {
+    SQLParser.parseAll(SQLParser.select, select) match {
+      case SQLParser.Success(sel, _) => doExecute(db, sel)
       case ex@_ =>
         println(ex)
         emptyRS
     }
   }
 
-  def bindValues(select: String, oBoundValues: Option[Seq[Any]] = None) = {
-    oBoundValues match {
-      case None => select
-      case Some(boundValues) => 
-        boundValues.foldLeft(select)((select, value) => {
-        val qIndex = select.indexOf("?")
-        s"""${select.substring(0, qIndex)}'${value.toString}'${select.substring(qIndex + 1)}"""
-      })
-    }
+  def bindValues(select: String, boundValues: Seq[Any]) = {
+      boundValues.foldLeft(select)((select, value) => {
+      val qIndex = select.indexOf("?")
+      s"""${select.substring(0, qIndex)}'${value.toString}'${select.substring(qIndex + 1)}"""
+    })
+  }
+
+  def bindValues(select: String, boundValues: Map[String, Any]) = {
+      boundValues.foldLeft(select)((select, vpair) => {
+      val (name, value) = vpair  
+      val nIndex = select.indexOf(name)
+      s"""${select.substring(0, nIndex)}'${value.toString}'${select.substring(nIndex + name.length)}"""
+    })
   }
   
   lazy val emptyRS = Seq[TRow]()
