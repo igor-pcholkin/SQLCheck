@@ -4,6 +4,7 @@ trait SQLParserHelpers {
   import SQLParser._
   
   val NoRow = Seq()
+  val EmptyConditions = Map[Option[String], Seq[EResultSet => EResultSet]]()
 
   def groupedByTable(filters: List[Seq[(Option[String], SQLParser.EResultSet => SQLParser.EResultSet)]]) = {
     filters.flatten.groupBy(_._1).map {

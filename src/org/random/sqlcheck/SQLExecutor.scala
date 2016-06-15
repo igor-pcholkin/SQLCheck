@@ -3,6 +3,7 @@
 package org.random.sqlcheck
 
 import SQLParser.EResultSet
+import scala.util.{Try}
 
 object SQLExecutor {
   import SQLParser._
@@ -39,20 +40,25 @@ object SQLExecutor {
   }
 
   def order(select: Select, outputResultSet: Seq[Row]): Seq[Row] = {
-    select.orderCols match {
-      case Some(orderCols) =>
-        orderCols.foldLeft(outputResultSet) { (ors, order) =>
-          val (table, column) = order.column
-          val field = table match {
-            case Some(t) => s"$t.$column"
-            case None => column
-          }
-          ors.sortWith((row1, row2) => {
-            val lt = row1(field).toString < row2(field).toString
-            if (order.asc) lt else !lt
-          })
+      select.orderCols.foldLeft(outputResultSet) { (ors, order) =>
+        val (table, column) = order.column
+        val field = table match {
+          case Some(t) => s"$t.$column"
+          case None => column
         }
-      case None => outputResultSet
+        ors.sortWith((row1, row2) => {
+          val lt = compare(row1(field), row2(field))
+          if (order.asc) lt else !lt
+        })
+      }
+  }
+  
+  def compare(value1: Any, value2: Any) = {
+    val sv1 = value1.toString
+    val sv2 = value2.toString
+    Try(java.lang.Double.valueOf(sv1) < java.lang.Double.valueOf(sv2)) match {
+      case scala.util.Success(lt) => lt
+      case scala.util.Failure(ex) => sv1 < sv2
     }
   }
 

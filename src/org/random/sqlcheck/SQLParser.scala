@@ -19,13 +19,14 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
   case class EResultSet(rs: ResultSet, select: Select, db: DB)
   case class Order(column: (Option[String], String), asc: Boolean)
   case class Select(fields: Seq[Field], tables: Seq[Table], conditions: Map[Option[String], Seq[EResultSet => EResultSet]], 
-      orderCols: Option[Seq[Order]])
+      orderCols: Seq[Order])
   
   def select =
     (("SELECT".ic ~ "DISTINCT".ic.?) ~> fields) ~
       ("FROM".ic ~> tables) ~
-      ("WHERE".ic ~> whereConditions)  ~
-      ("ORDER BY".ic ~> orderColumns).? ^^ { case fields ~ tables ~ wheres ~ orderColumns => Select(fields, tables, wheres, orderColumns) }
+      ("WHERE".ic ~> whereConditions).?  ~
+      ("ORDER BY".ic ~> orderColumns).? ^^ { case fields ~ tables ~ wheres ~ orderColumns => Select(fields, tables, 
+          wheres.getOrElse(EmptyConditions), orderColumns.getOrElse(Seq[Order]())) }
 
   def fields = rep1sep(fieldSpec, ",")
 

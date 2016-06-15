@@ -88,11 +88,9 @@ class SQLTest extends WordSpecLike with MustMatchers with DBCreator {
     }
     
     "do that with order check" in {
-      val resultSet = executeSelect(db, """select country from gdp where country like "C%" order by country desc""") 
+      val resultSet = executeSelect(db, """select country from gdp where country like "C%" order by country ASC""") 
 
-      resultSet.map { row =>
-        info(s"""${row("country")}""")
-      }
+      resultSet.map { _("country") } mustBe Seq("Canada", "Chile", "Croatia", "Cyprus", "Czech Republic") 
     }
   }
 }
