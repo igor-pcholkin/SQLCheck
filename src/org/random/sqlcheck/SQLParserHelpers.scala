@@ -29,12 +29,15 @@ trait SQLParserHelpers {
     }
   }
 
-  def filterValues(otable: Option[String])(filter: (Row, EResultSet) => Boolean) = {
-    (otable, (ers: EResultSet) =>
-      ers.copy(rs = ers.rs.filter { trow =>
+  def filterValues(otable: Option[String], field: String, value2: Value[Any])
+    (filter: (String, Value[Any]) => Boolean) = { (otable, (ers: EResultSet) => {
+      val (boundValue2, newBoundValues) = value2(ers)
+      val newRS = ers.rs.filter { trow =>
         val row = getRow(otable, trow, ers)
-        filter(row, ers)
-      }))
+        filter(rvalue(row, field, ers), boundValue2)
+      } 
+      EResultSet(newRS, ers.select, ers.db, newBoundValues.getOrElse(ers.boundValues))
+    })
   }
 
   def joinTables(column1: (Option[String], String), column2: (Option[String], String)) = {

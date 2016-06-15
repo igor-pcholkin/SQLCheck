@@ -12,19 +12,18 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
   type Row = Map[String, Any]
   type TRow = Map[String, Row]
   type ResultSet = Seq[TRow]
+  type QBoundValues = List[Value[Any]]
 
   case class Field(name: String, alias: Option[String])
   case class Table(name: String, alias: Option[String])
   case class WhereCondition(field: String, value: String)
-  case class EResultSet(rs: ResultSet, select: Select, db: DB)
+  case class EResultSet(rs: ResultSet, select: Select, db: DB, boundValues: QBoundValues)
   case class Select(fields: Seq[Field], tables: Seq[Table], conditions: Map[Option[String], Seq[EResultSet => EResultSet]])
   
   def select =
     (("SELECT".ic ~ "DISTINCT".ic.?) ~> fields) ~
       ("FROM".ic ~> tables) ~
-      ("WHERE".ic ~> whereConditions) ^^ {
-        case fields ~ tables ~ wheres => Select(fields, tables, wheres)
-      }
+      ("WHERE".ic ~> whereConditions) ^^ { case fields ~ tables ~ wheres => Select(fields, tables, wheres) }
 
   def fields = rep1sep(fieldSpec, ",")
 
@@ -59,52 +58,53 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
   }
   
   def equal = (column <~ "=") ~ value ^^ {
-    case (otable, field) ~ value => filterValues(otable) { case (row, ers) => rvalue(row, field, ers) == value.toString }
+    case (otable, field) ~ value2 => filterValues(otable, field, value2) { case (rowValue, value2) => rowValue == value2.toString }
   }
 
   def not_equal = (column <~ ("!=" | "<>")) ~ value ^^ {
-    case (otable, field) ~ value => filterValues(otable) { case (row, ers) => rvalue(row, field, ers) != value.toString }
+    case (otable, field) ~ value2 => filterValues(otable, field, value2) { case (rowValue, value2) => rowValue != value2.toString }
   }
   
   def greater = (column <~ ">") ~ value ^^ {
-    case (otable, field) ~ value => filterValues(otable) { case (row, ers) => value < rvalue(row, field, ers) }
+    case (otable, field) ~ value2 => filterValues(otable, field, value2) { case (rowValue, value2) => value2 < rowValue }
   }
 
   def less = (column <~ "<") ~ value ^^ {
-    case (otable, field) ~ value => filterValues(otable) { case (row, ers) => value > rvalue(row, field, ers) }
+    case (otable, field) ~ value2 => filterValues(otable, field, value2) { case (rowValue, value2) => value2 > rowValue }
   }
 
   def ge = (column <~ ">=") ~ value ^^ {
-    case (otable, field) ~ value => filterValues(otable) {
-      case (row, ers) =>
-        val rv = rvalue(row, field, ers)
-        value == rv.toString || value < rv
+    case (otable, field) ~ value2 => filterValues(otable, field, value2) {
+      case (rowValue, value2) =>
+        rowValue == value2.toString || value2 < rowValue
     }
   }
 
   def le = (column <~ "<=") ~ value ^^ {
-    case (otable, field) ~ value => filterValues(otable) {
-      case (row, ers) =>
-        val rv = rvalue(row, field, ers)
-        value == rv || value > rv
+    case (otable, field) ~ value2 => filterValues(otable, field, value2) {
+      case (rowValue, value2) =>
+        rowValue == value2.toString || value2 > rowValue
     }
   }
 
   def like = (column <~ "like".ic) ~ aqStringValue ^^ {
     case (otable, field) ~ pattern =>
-      filterValues(otable) {
-        case (row, ers) =>
-          val rowStrValue = rvalue(row, field, ers)
+      filterValues(otable, field, StringValue(pattern)) {
+        case (rowValue, value2) =>
           if (pattern.startsWith("%") && pattern.endsWith("%"))
-            rowStrValue.contains(pattern.substring(1, pattern.length - 1))
+            rowValue.contains(pattern.substring(1, pattern.length - 1))
           else if (pattern.startsWith("%"))
-            rowStrValue.endsWith(pattern.substring(1))
+            rowValue.endsWith(pattern.substring(1))
           else if (pattern.endsWith("%"))
-            rowStrValue.startsWith(pattern.substring(0, pattern.length - 1))
+            rowValue.startsWith(pattern.substring(0, pattern.length - 1))
           else
             true
       }
   }
 
-  def value = aqStringValue ^^ { case sv => StringValue(sv) } | decimalNumber ^^ { case dn => NumberValue(dn.toDouble) }
+  def value = aqStringValue ^^ { case sv => StringValue(sv) } | 
+              decimalNumber ^^ { case dn => NumberValue(dn.toDouble) } | 
+              boundVariable ^^ { case name => QBoundVariable() }
+              
+  def boundVariable = "?"            
 }

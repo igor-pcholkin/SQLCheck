@@ -7,17 +7,27 @@ import SQLParser.EResultSet
 object SQLExecutor {
   import SQLParser._
 
-  def execute(db: DB, select: Select): Seq[Row] = {
+  def execute(db: DB, select: Select, oBoundValues: Option[Seq[Any]]): Seq[Row] = {
     val startTableName = select.tables(0).name
     val startTableAlias = select.tables(0).alias
     val inputResultSet = db(startTableName).map(row => Map(startTableName -> row))
     val sc = select.conditions
     val conditions = sc.withDefault { _ => sc.getOrElse(startTableAlias, sc.getOrElse(None, Nil)) } (Some(startTableName))
     val conditionsCheck = conditions.foldLeft((rs: EResultSet) => rs)(_ compose _)
-    val outputResultSet = conditionsCheck(EResultSet(inputResultSet, select, db))
+    val boundValues = bindValues(oBoundValues)
+    val outputResultSet = conditionsCheck(EResultSet(inputResultSet, select, db, boundValues.toList))
     project(outputResultSet)
   }  
 
+  def bindValues(oBoundValues: Option[Seq[Any]]) = {
+    oBoundValues.getOrElse(List[Any]()) map { value =>
+      value match {
+          case s: String => StringValue(s.toString())
+          case d@_ => NumberValue(d.toString.toDouble)
+        }
+    }
+  }
+  
   def project(outputResultSet: EResultSet): Seq[Row] = {
     outputResultSet.rs.map { trow =>
       trow.foldLeft(Map[String, Any]())((crow, t1row) => {
@@ -58,9 +68,9 @@ object SQLExecutor {
     }
   }
   
-  def executeSelect(db: DB, select: String): Seq[Row] = {
+  def executeSelect(db: DB, select: String, oBoundValues: Option[Seq[Any]] = None): Seq[Row] = {
     SQLParser.parseAll(SQLParser.select, select) match {
-      case SQLParser.Success(sel, _) => execute(db, sel)
+      case SQLParser.Success(sel, _) => execute(db, sel, oBoundValues)
       case ex@_ =>
         println(ex)
         emptyRS
