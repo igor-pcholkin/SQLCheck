@@ -3,6 +3,8 @@ package org.random.sqlcheck
 trait SQLParserHelpers { 
   import SQLParser._
   
+  val NoRow = Seq()
+  
   def rvalue(row: Row, field: String, ers: EResultSet) = {
     val rowA = row.withDefault { alias =>
       val fn = ers.select.fields.find(_.alias == Some(alias)).map(f => f.name).get

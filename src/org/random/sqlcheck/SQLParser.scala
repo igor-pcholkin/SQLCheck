@@ -19,8 +19,6 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
   case class EResultSet(rs: ResultSet, select: Select, db: DB)
   case class Select(fields: Seq[Field], tables: Seq[Table], conditions: Map[Option[String], Seq[EResultSet => EResultSet]])
   
-  val NoRow = Seq()
-  
   def select =
     (("SELECT".ic ~ "DISTINCT".ic.?) ~> fields) ~
       ("FROM".ic ~> tables) ~
