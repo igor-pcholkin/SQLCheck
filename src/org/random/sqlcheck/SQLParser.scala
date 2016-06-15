@@ -17,12 +17,15 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
   case class Table(name: String, alias: Option[String])
   case class WhereCondition(field: String, value: String)
   case class EResultSet(rs: ResultSet, select: Select, db: DB)
-  case class Select(fields: Seq[Field], tables: Seq[Table], conditions: Map[Option[String], Seq[EResultSet => EResultSet]])
+  case class Order(column: (Option[String], String), asc: Boolean)
+  case class Select(fields: Seq[Field], tables: Seq[Table], conditions: Map[Option[String], Seq[EResultSet => EResultSet]], 
+      orderCols: Option[Seq[Order]])
   
   def select =
     (("SELECT".ic ~ "DISTINCT".ic.?) ~> fields) ~
       ("FROM".ic ~> tables) ~
-      ("WHERE".ic ~> whereConditions) ^^ { case fields ~ tables ~ wheres => Select(fields, tables, wheres) }
+      ("WHERE".ic ~> whereConditions)  ~
+      ("ORDER BY".ic ~> orderColumns).? ^^ { case fields ~ tables ~ wheres ~ orderColumns => Select(fields, tables, wheres, orderColumns) }
 
   def fields = rep1sep(fieldSpec, ",")
 
@@ -32,6 +35,12 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
     case fieldName ~ alias => Field(fieldName, alias)
   }
 
+  def orderColumns = rep1sep(orderColumnSpec, ",")     
+  
+  def orderColumnSpec = column ~ ("ASC".ic | "DESC".ic).? ^^ { case col ~ order =>
+    Order(col, order.map(o => o.toLowerCase() == "asc").getOrElse(true))
+  }
+      
   def fieldName = aqStringValue | ident
 
   def fieldAll = "*" ^^^ Field("*", None)

@@ -15,7 +15,7 @@ object SQLExecutor {
     val conditions = sc.withDefault { _ => sc.getOrElse(startTableAlias, sc.getOrElse(None, Nil)) } (Some(startTableName))
     val conditionsCheck = conditions.foldLeft((rs: EResultSet) => rs)(_ compose _)
     val outputResultSet = conditionsCheck(EResultSet(inputResultSet, select, db))
-    project(outputResultSet)
+    order(select, project(outputResultSet))
   }  
 
   def project(outputResultSet: EResultSet): Seq[Row] = {
@@ -35,6 +35,24 @@ object SQLExecutor {
           }
         })
       })
+    }
+  }
+
+  def order(select: Select, outputResultSet: Seq[Row]): Seq[Row] = {
+    select.orderCols match {
+      case Some(orderCols) =>
+        orderCols.foldLeft(outputResultSet) { (ors, order) =>
+          val (table, column) = order.column
+          val field = table match {
+            case Some(t) => s"$t.$column"
+            case None => column
+          }
+          ors.sortWith((row1, row2) => {
+            val lt = row1(field).toString < row2(field).toString
+            if (order.asc) lt else !lt
+          })
+        }
+      case None => outputResultSet
     }
   }
 
