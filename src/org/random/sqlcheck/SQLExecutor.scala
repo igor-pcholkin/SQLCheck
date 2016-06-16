@@ -8,7 +8,26 @@ import scala.util.{Try}
 object SQLExecutor {
   import SQLParser._
 
-  def doExecute(db: DB, select: Select): Seq[Row] = {
+  def executeSelect(db: DB, select: String, boundValues: Seq[Any]): Seq[Row] = {
+    val boundSelect = bindValues(select, boundValues)
+    executeSelect(db, boundSelect)
+  }
+
+  def executeSelect(db: DB, select: String, boundValues: Map[String, Any]): Seq[Row] = {
+    val boundSelect = bindValues(select, boundValues)
+    executeSelect(db, boundSelect)
+  }
+  
+  def executeSelect(db: DB, select: String): Seq[Row] = {
+    SQLParser.parseAll(SQLParser.select, select) match {
+      case SQLParser.Success(sel, _) => doExecute(db, sel)
+      case ex@_ =>
+        println(ex)
+        emptyRS
+    }
+  }
+
+  private def doExecute(db: DB, select: Select): Seq[Row] = {
     val startTableName = select.tables(0).name
     val startTableAlias = select.tables(0).alias
     val inputResultSet = db(startTableName).map(row => Map(startTableName -> row))
@@ -18,8 +37,23 @@ object SQLExecutor {
     val outputResultSet = conditionsCheck(EResultSet(inputResultSet, select, db))
     order(select, project(outputResultSet))
   }  
+  
+  private def bindValues(select: String, boundValues: Seq[Any]) = {
+      boundValues.foldLeft(select)((select, value) => {
+      val qIndex = select.indexOf("?")
+      s"""${select.substring(0, qIndex)}'${value.toString}'${select.substring(qIndex + 1)}"""
+    })
+  }
 
-  def project(outputResultSet: EResultSet): Seq[Row] = {
+  private def bindValues(select: String, boundValues: Map[String, Any]) = {
+      boundValues.foldLeft(select)((select, vpair) => {
+      val (name, value) = vpair  
+      val nIndex = select.indexOf(name)
+      s"""${select.substring(0, nIndex)}'${value.toString}'${select.substring(nIndex + name.length)}"""
+    })
+  }
+  
+  private def project(outputResultSet: EResultSet): Seq[Row] = {
     outputResultSet.rs.map { trow =>
       trow.foldLeft(Map[String, Any]())((crow, t1row) => {
         val (table, row) = t1row
@@ -38,15 +72,14 @@ object SQLExecutor {
       })
     }
   }
-
   
-  def order(select: Select, outputResultSet: Seq[Row]): Seq[Row] = {
+  private def order(select: Select, outputResultSet: Seq[Row]): Seq[Row] = {
     outputResultSet.sortWith((row1, row2) => {
       compare(row1, row2, select, select.orderCols)
     })
   }
 
-  def compare(row1: Row, row2: Row, select: Select, orderCols: Seq[Order]): Boolean = {
+  private def compare(row1: Row, row2: Row, select: Select, orderCols: Seq[Order]): Boolean = {
     if (orderCols.isEmpty) return true
     val order = orderCols.head
     val (table, column) = order.column
@@ -61,14 +94,14 @@ object SQLExecutor {
     }
   }
   
-  def compare(value1: Any, value2: Any): Int = {
+  private def compare(value1: Any, value2: Any): Int = {
     Try(compareAsNumbers(value1, value2)) match {
       case scala.util.Success(nCompResult) => nCompResult
       case scala.util.Failure(ex) => compareAsStrings(value1, value2)
     }
   }
   
-  def compareAsNumbers(value1: Any, value2: Any): Int = {
+  private def compareAsNumbers(value1: Any, value2: Any): Int = {
      val num1 = java.lang.Double.valueOf(value1.toString)
      val num2 = java.lang.Double.valueOf(value2.toString)
      if (num1 < num2) -1
@@ -76,7 +109,7 @@ object SQLExecutor {
      else 0
   }
   
-  def compareAsStrings(value1: Any, value2: Any): Int = {
+  private def compareAsStrings(value1: Any, value2: Any): Int = {
     val s1 = value1.toString
     val s2 = value2.toString
     if (s1 < s2) -1 
@@ -84,7 +117,7 @@ object SQLExecutor {
     else 0
   }
 
-  def getSelectedFieldName(strField: String, talias: String, fields: Seq[Field]) = {
+  private def getSelectedFieldName(strField: String, talias: String, fields: Seq[Field]) = {
     val oField: Option[Field] = fields.find(f => f.name == s"$talias.$field" || f.name == strField ||
       f.name == s"$table.$field")
     oField match {
@@ -104,43 +137,5 @@ object SQLExecutor {
     }
   }
   
-  def executeSelect(db: DB, select: String, boundValues: Seq[Any]): Seq[Row] = {
-    val boundSelect = bindValues(select, boundValues)
-    execute(db, boundSelect)
-  }
-
-  def executeSelect(db: DB, select: String, boundValues: Map[String, Any]): Seq[Row] = {
-    val boundSelect = bindValues(select, boundValues)
-    execute(db, boundSelect)
-  }
-  
-  def executeSelect(db: DB, select: String): Seq[Row] = {
-    execute(db, select)
-  }
-  
-  def execute(db: DB, select: String) = {
-    SQLParser.parseAll(SQLParser.select, select) match {
-      case SQLParser.Success(sel, _) => doExecute(db, sel)
-      case ex@_ =>
-        println(ex)
-        emptyRS
-    }
-  }
-
-  def bindValues(select: String, boundValues: Seq[Any]) = {
-      boundValues.foldLeft(select)((select, value) => {
-      val qIndex = select.indexOf("?")
-      s"""${select.substring(0, qIndex)}'${value.toString}'${select.substring(qIndex + 1)}"""
-    })
-  }
-
-  def bindValues(select: String, boundValues: Map[String, Any]) = {
-      boundValues.foldLeft(select)((select, vpair) => {
-      val (name, value) = vpair  
-      val nIndex = select.indexOf(name)
-      s"""${select.substring(0, nIndex)}'${value.toString}'${select.substring(nIndex + name.length)}"""
-    })
-  }
-  
-  lazy val emptyRS = Seq[TRow]()
+  private lazy val emptyRS = Seq[TRow]()
 }
