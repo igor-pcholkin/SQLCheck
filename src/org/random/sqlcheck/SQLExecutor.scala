@@ -74,9 +74,7 @@ object SQLExecutor {
   }
   
   private def order(select: Select, outputResultSet: Seq[Row]): Seq[Row] = {
-    outputResultSet.sortWith((row1, row2) => {
-      compare(row1, row2, select, select.orderCols)
-    })
+    outputResultSet.sortWith(compare(_, _, select, select.orderCols))
   }
 
   private def compare(row1: Row, row2: Row, select: Select, orderCols: Seq[Order]): Boolean = {
@@ -87,11 +85,13 @@ object SQLExecutor {
       case Some(t) => s"$t.$column"
       case None => column
     }
-    compare(rvalue(row1, field, select), rvalue(row2, field, select)) match {
-      case -1 => order.asc
-      case 0 => compare(row1, row2, select, orderCols.tail)
-      case _ => !order.asc
-    }
+    val nCompResult = compare(rvalue(row1, field, select), rvalue(row2, field, select)) 
+    if (nCompResult < 0)
+      order.asc
+    else if (nCompResult > 0)  
+      !order.asc
+    else  
+      compare(row1, row2, select, orderCols.tail)
   }
   
   private def compare(value1: Any, value2: Any): Int = {
@@ -104,17 +104,13 @@ object SQLExecutor {
   private def compareAsNumbers(value1: Any, value2: Any): Int = {
      val num1 = java.lang.Double.valueOf(value1.toString)
      val num2 = java.lang.Double.valueOf(value2.toString)
-     if (num1 < num2) -1
-     else if (num1 > num2) 1
-     else 0
+     num1.compareTo(num2)
   }
   
   private def compareAsStrings(value1: Any, value2: Any): Int = {
     val s1 = value1.toString
     val s2 = value2.toString
-    if (s1 < s2) -1 
-    else if (s1 > s2) 1
-    else 0
+    s1.compareTo(s2)
   }
 
   private def getSelectedFieldName(strField: String, talias: String, fields: Seq[Field]) = {
