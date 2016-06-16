@@ -13,9 +13,9 @@ trait SQLParserHelpers {
     }
   }
   
-  def rvalue(row: Row, field: String, ers: EResultSet) = {
+  def rvalue(row: Row, field: String, select: Select) = {
     val rowA = row.withDefault { alias =>
-      val fn = ers.select.fields.find(_.alias == Some(alias)).map(f => f.name).get
+      val fn = select.fields.find(_.alias == Some(alias)).map(f => f.name).get
       row(fn)
     }
     rowA(field).toString
@@ -32,11 +32,12 @@ trait SQLParserHelpers {
 
   def filterValues(otable: Option[String], field: String, value2: Value[Any])
     (filter: (String, Value[Any]) => Boolean) = { (otable, (ers: EResultSet) => {
+      val select = ers.select
       val newRS = ers.rs.filter { trow =>
         val row = getRow(otable, trow, ers)
-        filter(rvalue(row, field, ers), value2)
+        filter(rvalue(row, field, select), value2)
       } 
-      EResultSet(newRS, ers.select, ers.db)
+      EResultSet(newRS, select, ers.db)
     })
   }
 
@@ -48,8 +49,8 @@ trait SQLParserHelpers {
       val rs2 = ers.db(table2)
       ers.copy(rs = ers.rs.flatMap { trow =>
         val row = getRow(otable, trow, ers)
-        val rv = rvalue(row, field, ers)
-        rs2.find(row2 => rv == rvalue(row2, field2, ers)) match {
+        val rv = rvalue(row, field, ers.select)
+        rs2.find(row2 => rv == rvalue(row2, field2, ers.select)) match {
           case Some(row2) => Seq(trow + (table2 -> row2))
           case None       => NoRow
         }

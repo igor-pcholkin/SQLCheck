@@ -55,15 +55,40 @@ class MapDBTest extends WordSpecLike with MustMatchers with DBCreator {
 
       val smallDB = Map("people" ->
         Seq(
-          Map("id" -> 1, "name" -> "Joe Doe"),
+          Map("id" -> 1, "name" -> "John Smith"),
+          Map("id" -> 11, "name" -> "John Smith"),
           Map("id" -> 10, "name" -> "John Smith"),
+          Map("id" -> 20, "name" -> "John Smith"),
+          Map("id" -> 22, "name" -> "John Smith"),
           Map("id" -> 3, "name" -> "George Cloony"),
-          Map("id" -> 4, "name" -> "Samantha Fox"))
+          Map("id" -> 4, "name" -> "Samantha Fox"),
+          Map("id" -> 5, "name" -> "Gery Holowell"),
+          Map("id" -> 6, "name" -> "Sasha Baron Coen"),
+          Map("id" -> 8, "name" -> "Sasha Baron Coen"),
+          Map("id" -> 6, "name" -> "Michael Douglas"),
+          Map("id" -> 6, "name" -> "Silverster Stallone"),
+          Map("id" -> 7, "name" -> "Michael Douglas"),
+          Map("id" -> 7, "name" -> "Brad Pitt")
+          )
       )
       
-      val resultSet = executeSelect(smallDB, """select * from people AS p ORDER BY p.id DESC""")
+      val resultSet = executeSelect(smallDB, """select * from people AS p ORDER BY p.id DESC, p.name ASC""")
 
-      resultSet.map { _("p.id") } mustBe Seq(10, 4, 3, 1)
+      resultSet.map { r => (r("p.id"), r("p.name")) } mustBe Seq(
+          (22, "John Smith"),
+          (20, "John Smith"), 
+          (11, "John Smith"), 
+          (10, "John Smith"), 
+          (8, "Sasha Baron Coen"), 
+          (7, "Brad Pitt"),
+          (7, "Michael Douglas"),
+          (6, "Michael Douglas"), 
+          (6, "Sasha Baron Coen"), 
+          (6, "Silverster Stallone"), 
+          (5, "Gery Holowell"),
+          (4, "Samantha Fox"), 
+          (3, "George Cloony"), 
+          (1, "John Smith")) 
     }
     
   }

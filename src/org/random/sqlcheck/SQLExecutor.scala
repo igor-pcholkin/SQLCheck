@@ -39,27 +39,49 @@ object SQLExecutor {
     }
   }
 
+  
   def order(select: Select, outputResultSet: Seq[Row]): Seq[Row] = {
-      select.orderCols.foldLeft(outputResultSet) { (ors, order) =>
-        val (table, column) = order.column
-        val field = table match {
-          case Some(t) => s"$t.$column"
-          case None => column
-        }
-        ors.sortWith((row1, row2) => {
-          val lt = compare(row1(field), row2(field))
-          if (order.asc) lt else !lt
-        })
-      }
+    outputResultSet.sortWith((row1, row2) => {
+      compare(row1, row2, select, select.orderCols)
+    })
+  }
+
+  def compare(row1: Row, row2: Row, select: Select, orderCols: Seq[Order]): Boolean = {
+    if (orderCols.isEmpty) return true
+    val order = orderCols.head
+    val (table, column) = order.column
+    val field = table match {
+      case Some(t) => s"$t.$column"
+      case None => column
+    }
+    compare(rvalue(row1, field, select), rvalue(row2, field, select)) match {
+      case -1 => order.asc
+      case 0 => compare(row1, row2, select, orderCols.tail)
+      case _ => !order.asc
+    }
   }
   
-  def compare(value1: Any, value2: Any) = {
-    val sv1 = value1.toString
-    val sv2 = value2.toString
-    Try(java.lang.Double.valueOf(sv1) < java.lang.Double.valueOf(sv2)) match {
-      case scala.util.Success(lt) => lt
-      case scala.util.Failure(ex) => sv1 < sv2
+  def compare(value1: Any, value2: Any): Int = {
+    Try(compareAsNumbers(value1, value2)) match {
+      case scala.util.Success(nCompResult) => nCompResult
+      case scala.util.Failure(ex) => compareAsStrings(value1, value2)
     }
+  }
+  
+  def compareAsNumbers(value1: Any, value2: Any): Int = {
+     val num1 = java.lang.Double.valueOf(value1.toString)
+     val num2 = java.lang.Double.valueOf(value2.toString)
+     if (num1 < num2) -1
+     else if (num1 > num2) 1
+     else 0
+  }
+  
+  def compareAsStrings(value1: Any, value2: Any): Int = {
+    val s1 = value1.toString
+    val s2 = value2.toString
+    if (s1 < s2) -1 
+    else if (s1 > s2) 1
+    else 0
   }
 
   def getSelectedFieldName(strField: String, talias: String, fields: Seq[Field]) = {
