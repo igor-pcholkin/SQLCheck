@@ -65,4 +65,21 @@ trait SQLParserHelpers {
     }
   }
   
+  def buildSelect(fields: Seq[Field], tableSpecs: Seq[TableSpec], oWheres: Option[Map[Option[String], Seq[EResultSet => EResultSet]]], 
+      orderColumns: Option[Seq[Order]]) = {
+    val tables = for {
+      tspec <- tableSpecs
+      table <- tspec.table :: tspec.joins.map(_.table)
+    } yield (table)
+    
+    val conditions = (for {
+      tspec <- tableSpecs
+      join <- tspec.joins 
+    } yield (join.conditions)).foldLeft(oWheres.getOrElse(EmptyConditions)) { (wheres, wheres2) => 
+      wheres ++ wheres2
+    }
+    
+    Select(fields, tables, conditions, orderColumns.getOrElse(Seq[Order]()))
+  }
+  
 }

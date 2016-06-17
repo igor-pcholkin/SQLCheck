@@ -15,6 +15,8 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
 
   case class Field(name: String, alias: Option[String])
   case class Table(name: String, alias: Option[String])
+  case class TableSpec(table: Table, joins: List[Join])
+  case class Join(table: Table, conditions: Map[Option[String], Seq[EResultSet => EResultSet]])
   case class WhereCondition(field: String, value: String)
   case class EResultSet(rs: ResultSet, select: Select, db: DB)
   case class Order(column: (Option[String], String), asc: Boolean)
@@ -25,8 +27,9 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
     (("SELECT".ic ~ "DISTINCT".ic.?) ~> fields) ~
       ("FROM".ic ~> tables) ~
       ("WHERE".ic ~> whereConditions).?  ~
-      ("ORDER BY".ic ~> orderColumns).? ^^ { case fields ~ tables ~ wheres ~ orderColumns => Select(fields, tables, 
-          wheres.getOrElse(EmptyConditions), orderColumns.getOrElse(Seq[Order]())) }
+      ("ORDER BY".ic ~> orderColumns).? ^^ { case fields ~ tables ~ wheres ~ orderColumns => 
+        buildSelect(fields, tables, wheres, orderColumns) 
+      }
 
   def fields = rep1sep(fieldSpec, ",")
 
@@ -36,7 +39,7 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
     case fieldName ~ alias => Field(fieldName, alias)
   }
 
-  def orderColumns = rep1sep(orderColumnSpec, ",")     
+  def orderColumns = rep1sep(orderColumnSpec, ",")
   
   def orderColumnSpec = column ~ ("ASC".ic | "DESC".ic).? ^^ { case col ~ order =>
     Order(col, order.map(o => o.toLowerCase() == "asc").getOrElse(true))
@@ -46,23 +49,35 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
 
   def fieldAll = "*" ^^^ Field("*", None)
 
-  def tables = rep1sep(table, ",")
+  def tables = rep1sep(tableSpec, ",") 
   
+  def tableSpec = table ~ joins ^^ { case table ~ joins => TableSpec(table, joins) }
+
   def table = (ident ~ ("AS".ic ~> ident).?) ^^ {
     case tableName ~ alias => Table(tableName, alias)
+  }
+  
+  def joins = rep(joinSpec)
+
+  def joinSpec = ("INNER".ic.? ~ "JOIN".ic) ~> table ~ ("ON".ic ~> joinConditions) ^^ { case t ~ jcs =>
+    Join(t, jcs)
+  }
+  
+  def joinConditions = rep1sep(join, "AND".ic) ^^ {
+    case filters => groupedByTable(filters)
   }
 
   def whereConditions = rep1sep(whereCondition, "AND".ic) ^^ {
     case filters => groupedByTable(filters)
   }
 
-  def whereCondition = joins | operation ^^ { case op => Seq(op) } 
+  def whereCondition = join | operation ^^ { case op => Seq(op) } 
   
   def operation = equal | not_equal | like | greater | less | ge | le
 
   def column = (ident <~ ".").? ~ ident ^^ { case oTable ~ cName => (oTable, cName) }
 
-  def joins = (column <~ "=") ~ column ^^ { case column1 ~ column2 => 
+  def join = (column <~ "=") ~ column ^^ { case column1 ~ column2 => 
     Seq(joinTables(column1, column2), joinTables(column2, column1))
   }
   

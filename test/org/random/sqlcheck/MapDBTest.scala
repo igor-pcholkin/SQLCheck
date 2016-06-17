@@ -91,6 +91,19 @@ class MapDBTest extends WordSpecLike with MustMatchers with DBCreator {
           (1, "John Smith")) 
     }
     
+    "do that with inner join" in {
+
+      val resultSet = executeSelect(db, """select * from people AS p inner join address AS ad
+        on p.id = ad.pid """)
+
+      resultSet.map { row =>
+        info(s"""${row("p.id")}: ${row("p.name")}, ${row("ad.city")}""")
+      }
+
+      resultSet.length mustBe 3
+    }
+
+    
   }
 
 }
