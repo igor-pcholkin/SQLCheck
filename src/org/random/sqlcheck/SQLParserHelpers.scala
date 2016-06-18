@@ -6,17 +6,17 @@ trait SQLParserHelpers {
   val NoRow = Seq()
   val EmptyConditions = Map[Option[String], Seq[EResultSet => EResultSet]]()
 
-  def groupedByTable(filters: List[Seq[(Option[String], SQLParser.EResultSet => SQLParser.EResultSet)]]) = {
-    filters.flatten.groupBy(_._1).map {
+  def groupedByTable(filters: Seq[(Option[String], EResultSet => EResultSet)]) = {
+    filters.groupBy(_._1).map {
       case (tableName, tableFilters) =>
         (tableName, tableFilters map (_._2))
     }
   }
   
-  def rvalue(row: Row, field: String, select: Select) = {
-    val rowA = row.withDefault { alias =>
+  def rcvalue(rowContents: Map[String, Any], field: String, select: Select) = {
+    val rowA = rowContents.withDefault { alias =>
       val fn = select.fields.find(_.alias == Some(alias)).map(f => f.name).get
-      row(fn)
+      rowContents(fn)
     }
     rowA(field).toString
   }
@@ -35,7 +35,7 @@ trait SQLParserHelpers {
       val select = ers.select
       val newRS = ers.rs.filter { trow =>
         val row = getRow(otable, trow, ers)
-        filter(rvalue(row, field, select), value2)
+        filter(rcvalue(row.contents, field, select), value2)
       } 
       EResultSet(newRS, select, ers.db)
     })
@@ -44,15 +44,19 @@ trait SQLParserHelpers {
   def joinTables(column1: (Option[String], String), column2: (Option[String], String)) = {
     val (otable, field) = column1
     val (otable2, field2) = column2
-    (otable, (ers: EResultSet) => {
+    (otable, (joinType: JoinType, ers: EResultSet) => {
       val table2 = getTableNameInDB(otable2.get, ers)
       val rs2 = ers.db(table2)
       ers.copy(rs = ers.rs.flatMap { trow =>
         val row = getRow(otable, trow, ers)
-        val rv = rvalue(row, field, ers.select)
-        rs2.find(row2 => rv == rvalue(row2, field2, ers.select)) match {
-          case Some(row2) => Seq(trow + (table2 -> row2))
-          case None       => NoRow
+        val rv = rcvalue(row.contents, field, ers.select)
+        rs2.find(row2 => rv == rcvalue(row2, field2, ers.select)) match {
+          case Some(row2) => Seq(trow + (table2 -> Row(row2)))
+          case None       =>
+            joinType match {
+              case InnerJoin => NoRow
+              case LeftJoin  => Seq(trow)
+            }
         }
       })
     })
@@ -80,6 +84,13 @@ trait SQLParserHelpers {
     }
     
     Select(fields, tables, conditions, orderColumns.getOrElse(Seq[Order]()))
+  }
+
+  def bindToJoinType(joinType: JoinType, filters: Seq[(Option[String], (JoinType, EResultSet) => EResultSet)]) = {
+    filters.map { join =>
+      val (t, c) = join
+      (t, c(joinType, _: EResultSet))
+    }
   }
   
 }

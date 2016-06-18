@@ -2,7 +2,7 @@
 
 package org.random.sqlcheck
 
-import SQLParser.EResultSet
+import SQLParser._
 import scala.util.{Try}
 
 object SQLExecutor {
@@ -30,7 +30,7 @@ object SQLExecutor {
   private def doExecute(db: DB, select: Select): Seq[Row] = {
     val startTableName = select.tables(0).name
     val startTableAlias = select.tables(0).alias
-    val inputResultSet = db(startTableName).map(row => Map(startTableName -> row))
+    val inputResultSet = db(startTableName).map(mrow => Map(startTableName -> Row(mrow)))
     val sc = select.conditions
     val conditions = sc.withDefault { _ => sc.getOrElse(startTableAlias, sc.getOrElse(None, Nil)) } (Some(startTableName))
     val conditionsCheck = conditions.foldLeft((rs: EResultSet) => rs)(_ compose _)
@@ -55,9 +55,9 @@ object SQLExecutor {
   
   private def project(outputResultSet: EResultSet): Seq[Row] = {
     outputResultSet.rs.map { trow =>
-      trow.foldLeft(Map[String, Any]())((crow, t1row) => {
+      Row(trow.foldLeft(Map[String, Any]())((crow, t1row) => {
         val (table, row) = t1row
-        crow ++ row.foldLeft(Map[String, Any]())((r, pair) => {
+        crow ++ row.contents.foldLeft(Map[String, Any]())((r, pair) => {
           val (field,value) = pair
           val oTable: Option[Table] = outputResultSet.select.tables.find(t => t.name == table)
           val talias = oTable.map { t =>
@@ -69,7 +69,7 @@ object SQLExecutor {
             case None => r
           }
         })
-      })
+      }))
     }
   }
   
@@ -85,7 +85,7 @@ object SQLExecutor {
       case Some(t) => s"$t.$column"
       case None => column
     }
-    val nCompResult = compare(rvalue(row1, field, select), rvalue(row2, field, select)) 
+    val nCompResult = compare(rcvalue(row1.contents, field, select), rcvalue(row2.contents, field, select)) 
     if (nCompResult < 0)
       order.asc
     else if (nCompResult > 0)  
@@ -133,5 +133,5 @@ object SQLExecutor {
     }
   }
   
-  private lazy val emptyRS = Seq[TRow]()
+  private lazy val emptyRS = Seq[Row]()
 }

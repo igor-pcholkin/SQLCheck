@@ -103,6 +103,18 @@ class MapDBTest extends WordSpecLike with MustMatchers with DBCreator {
       resultSet.length mustBe 3
     }
 
+    "do that with left join" in {
+
+      val resultSet = executeSelect(db, """select * from people AS p left join address AS ad
+        on p.id = ad.pid """)
+
+      resultSet.map { row =>
+        info(s"""${row("p.id")}: ${row("p.name")}, ${row("ad.city")}""")
+      }
+
+      resultSet.length mustBe 4
+    }
+    
     
   }
 

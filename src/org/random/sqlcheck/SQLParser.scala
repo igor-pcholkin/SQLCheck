@@ -8,21 +8,10 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
   type TABLE_NAME = String
   type VALUE = Any
   type COLUMN_NAME = String
-  type DB = Map[TABLE_NAME, Seq[Row]]
-  type Row = Map[String, Any]
+  type DB = Map[TABLE_NAME, Seq[Map[String, Any]]]
   type TRow = Map[String, Row]
   type ResultSet = Seq[TRow]
 
-  case class Field(name: String, alias: Option[String])
-  case class Table(name: String, alias: Option[String])
-  case class TableSpec(table: Table, joins: List[Join])
-  case class Join(table: Table, conditions: Map[Option[String], Seq[EResultSet => EResultSet]])
-  case class WhereCondition(field: String, value: String)
-  case class EResultSet(rs: ResultSet, select: Select, db: DB)
-  case class Order(column: (Option[String], String), asc: Boolean)
-  case class Select(fields: Seq[Field], tables: Seq[Table], conditions: Map[Option[String], Seq[EResultSet => EResultSet]], 
-      orderCols: Seq[Order])
-  
   def select =
     (("SELECT".ic ~ "DISTINCT".ic.?) ~> fields) ~
       ("FROM".ic ~> tables) ~
@@ -59,19 +48,22 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
   
   def joins = rep(joinSpec)
 
-  def joinSpec = ("INNER".ic.? ~ "JOIN".ic) ~> table ~ ("ON".ic ~> joinConditions) ^^ { case t ~ jcs =>
-    Join(t, jcs)
+  def joinSpec = (joinType.? <~ "JOIN".ic) ~ table ~ ("ON".ic ~> joinConditions) ^^ { case jt ~ t ~ jcs =>
+    val joinType = jt.getOrElse(InnerJoin)
+    Join(t, groupedByTable(bindToJoinType(joinType, jcs)))
   }
   
+  def joinType = "INNER".ic ^^^ InnerJoin | "LEFT".ic ^^^ LeftJoin | "RIGHT".ic ^^^ RightJoin | "FULL".ic ^^^ FullJoin
+  
   def joinConditions = rep1sep(join, "AND".ic) ^^ {
-    case filters => groupedByTable(filters)
+    case filters => filters.flatten
   }
 
   def whereConditions = rep1sep(whereCondition, "AND".ic) ^^ {
-    case filters => groupedByTable(filters)
+    case filters => { groupedByTable(filters.flatten) }
   }
 
-  def whereCondition = join | operation ^^ { case op => Seq(op) } 
+  def whereCondition = join ^^ { case joins => bindToJoinType(InnerJoin, joins) } | operation ^^ { case op => Seq(op) } 
   
   def operation = equal | not_equal | like | greater | less | ge | le
 
