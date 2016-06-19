@@ -49,27 +49,7 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
   def joins = rep(joinSpec)
 
   def joinSpec = (joinType.? <~ "JOIN".ic) ~ table ~ ("ON".ic ~> orderedJoin) ~ ("AND".ic ~> whereConditions).? ^^ { 
-    case jt ~ t ~ orderedJoin ~ wheres =>
-      val joinType = jt.getOrElse(InnerJoin)
-      val (column1, column2) = orderedJoin
-      val joins = wheres.getOrElse(EmptyConditions)
-      val allJoins = if (joinType == LeftJoin || joinType == RightJoin) {
-        val significantJoin = if (joinType == LeftJoin) joinTables(column1, column2) else joinTables(column2, column1)
-        val boundToType = bindToJoinType(LeftJoin, significantJoin)
-        val boundSignificantJoin = (boundToType._1, Seq(boundToType._2))
-        joins + boundSignificantJoin 
-      } else {
-        val filters = Seq(joinTables(column1, column2), joinTables(column2, column1))
-        joins ++ groupedByTable(bindToJoinType(InnerJoin, filters)) 
-      }
-      
-      val primaryTable = (joinType match {
-        case LeftJoin => Some(column1._1)
-        case RightJoin => Some(column2._1)
-        case _ => None
-      }).flatten
-  
-      Join(t, primaryTable, allJoins)
+    case jt ~ t ~ orderedJoin ~ wheres => createJoin(jt, t, orderedJoin, wheres)
   }
   
   def orderedJoin = (column <~ "=") ~ column ^^ { case column1 ~ column2 => 
