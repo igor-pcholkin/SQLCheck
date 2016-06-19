@@ -20,7 +20,8 @@ class MapDBTest extends WordSpecLike with MustMatchers with DBCreator {
       Seq(
         Map("id" -> 1, "pid" -> 2, "city" -> "New York"),
         Map("id" -> 2, "pid" -> 3, "city" -> "Los Angeles"),
-        Map("id" -> 3, "pid" -> 4, "city" -> "San Francisco")),
+        Map("id" -> 3, "pid" -> 4, "city" -> "San Francisco"), 
+        Map("id" -> 4, "pid" -> 5, "city" -> "London")),
 
     "age" ->
       Seq(
@@ -106,6 +107,18 @@ class MapDBTest extends WordSpecLike with MustMatchers with DBCreator {
     "do that with left join" in {
 
       val resultSet = executeSelect(db, """select * from people AS p left join address AS ad
+        on p.id = ad.pid """)
+
+      resultSet.map { row =>
+        info(s"""${row("p.id")}: ${row("p.name")}, ${row("ad.city")}""")
+      }
+
+      resultSet.length mustBe 4
+    }
+
+    "do that with right join" in {
+
+      val resultSet = executeSelect(db, """select * from people AS p right join address AS ad
         on p.id = ad.pid """)
 
       resultSet.map { row =>

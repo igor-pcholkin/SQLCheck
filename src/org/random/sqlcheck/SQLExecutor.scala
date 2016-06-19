@@ -28,8 +28,9 @@ object SQLExecutor {
   }
 
   private def doExecute(db: DB, select: Select): Seq[Row] = {
-    val startTableName = select.tables(0).name
-    val startTableAlias = select.tables(0).alias
+    val startTable = getStartTable(select) 
+    val startTableName = startTable.name
+    val startTableAlias = startTable.alias
     val inputResultSet = db(startTableName).map(mrow => Map(startTableName -> Row(mrow)))
     val sc = select.conditions
     val conditions = sc.withDefault { _ => sc.getOrElse(startTableAlias, sc.getOrElse(None, Nil)) } (Some(startTableName))
@@ -37,6 +38,14 @@ object SQLExecutor {
     val outputResultSet = conditionsCheck(EResultSet(inputResultSet, select, db))
     order(select, project(outputResultSet))
   }  
+  
+  private def getStartTable(select: Select) = {
+    println(select)
+    select.primaryTable match {
+      case None => select.tables(0) 
+      case Some(primaryTableName) => select.tables.find(t => t.name == primaryTableName || t.alias == Some(primaryTableName)).getOrElse(select.tables(0)) 
+    }
+  }
   
   private def bindValues(select: String, boundValues: Seq[Any]) = {
       boundValues.foldLeft(select)((select, value) => {

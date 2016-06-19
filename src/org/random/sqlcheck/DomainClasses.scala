@@ -28,12 +28,12 @@ case class Row(contents: Map[String, Any]) {
 case class Field(name: String, alias: Option[String])
 case class Table(name: String, alias: Option[String])
 case class TableSpec(table: Table, joins: List[Join])
-case class Join(table: Table, conditions: Map[Option[String], Seq[EResultSet => EResultSet]])
+case class Join(table: Table, primaryTable: Option[String], conditions: Map[Option[String], Seq[EResultSet => EResultSet]])
 case class WhereCondition(field: String, value: String)
 case class EResultSet(rs: ResultSet, select: Select, db: DB)
 case class Order(column: (Option[String], String), asc: Boolean)
 case class Select(fields: Seq[Field], tables: Seq[Table], conditions: Map[Option[String], Seq[EResultSet => EResultSet]],
-                  orderCols: Seq[Order])
+                  orderCols: Seq[Order], primaryTable: Option[String])
 
 class JoinType
 case object InnerJoin extends JoinType

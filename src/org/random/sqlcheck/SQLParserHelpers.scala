@@ -83,14 +83,23 @@ trait SQLParserHelpers {
       wheres ++ wheres2
     }
     
-    Select(fields, tables, conditions, orderColumns.getOrElse(Seq[Order]()))
+    val primaryTable = (for {
+      tspec <- tableSpecs
+      join <- tspec.joins 
+    } yield (join.primaryTable)).find(pt => pt != None).flatten
+    
+    Select(fields, tables, conditions, orderColumns.getOrElse(Seq[Order]()), primaryTable)
   }
 
-  def bindToJoinType(joinType: JoinType, filters: Seq[(Option[String], (JoinType, EResultSet) => EResultSet)]) = {
-    filters.map { join =>
+  def bindToJoinType(joinType: JoinType, filters: Seq[(Option[String], (JoinType, EResultSet) => EResultSet)]):
+    Seq[(Option[String], EResultSet => EResultSet)] = {
+    filters map { f => bindToJoinType(joinType,f) }
+  }
+
+  def bindToJoinType(joinType: JoinType, join: (Option[String], (JoinType, EResultSet) => EResultSet)):
+    (Option[String], EResultSet => EResultSet) = {
       val (t, c) = join
       (t, c(joinType, _: EResultSet))
-    }
   }
   
 }
