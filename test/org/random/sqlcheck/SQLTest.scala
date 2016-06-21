@@ -66,10 +66,12 @@ class SQLTest extends WordSpecLike with MustMatchers with DBCreator {
       resultSet.length mustBe 15
     }
 
-    "do that with classic variable binding" in {
+    "do that with classic variable binding and alias based projection" in {
       val resultSet = executeSelect(db, """select country, "GDP-per-capita ($; 2012)" as gdp from gdp where country != ? AND country != ?""", 
           Seq("Latvia", "Lithuania"))
 
+      resultSet.head.contents mustBe Map("country" -> "Luxembourg", "gdp" -> "107475.95")    
+          
       resultSet.length mustBe 58
     }
 

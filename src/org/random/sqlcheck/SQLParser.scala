@@ -24,8 +24,13 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
 
   def fieldSpec = field | fieldAll
 
-  def field = (fieldName ~ ("AS".ic ~> fieldName).?) ^^ {
-    case fieldName ~ alias => Field(fieldName, alias)
+  def field = ((column|fieldName) ~ ("AS".ic ~> fieldName).?) ^^ {
+    case column ~ alias =>
+      val sFieldName = (column._1 match {
+        case Some(tName) => tName + "."
+        case None => ""
+      }) + column._2
+      Field(sFieldName, alias map (_._2))
   }
 
   def orderColumns = rep1sep(orderColumnSpec, ",")
@@ -34,7 +39,9 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
     Order(col, order.map(o => o.toLowerCase() == "asc").getOrElse(true))
   }
       
-  def fieldName = aqStringValue | ident
+  def fieldName: Parser[(Option[String], String)] = (aqStringValue | ident) ^^ {
+    case fieldName => (None, fieldName)
+  }
 
   def fieldAll = "*" ^^^ Field("*", None)
 

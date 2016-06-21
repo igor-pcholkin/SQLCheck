@@ -40,7 +40,6 @@ object SQLExecutor {
   }  
   
   private def getStartTable(select: Select) = {
-    println(select)
     select.primaryTable match {
       case None => select.tables(0) 
       case Some(primaryTableName) => select.tables.find(t => t.name == primaryTableName || t.alias == Some(primaryTableName)).getOrElse(select.tables(0)) 
@@ -67,14 +66,14 @@ object SQLExecutor {
       Row(trow.foldLeft(Map[String, Any]())((crow, t1row) => {
         val (table, row) = t1row
         crow ++ row.contents.foldLeft(Map[String, Any]())((r, pair) => {
-          val (field,value) = pair
+          val (dbFieldName,value) = pair
           val oTable: Option[Table] = outputResultSet.select.tables.find(t => t.name == table)
           val talias = oTable.map { t =>
             t.alias.getOrElse(t.name)
           }.getOrElse("")
-          val oNewFieldName = getSelectedFieldName(field, talias, outputResultSet.select.fields)
-          oNewFieldName match {
-            case Some(newFieldName) => r + (newFieldName -> value)
+          val oSelectedFieldName = getFullSelectedFieldName(dbFieldName, table, talias, outputResultSet.select.fields)
+          oSelectedFieldName match {
+            case Some(selectedFieldName) => r + (selectedFieldName -> value)
             case None => r
           }
         })
@@ -122,21 +121,21 @@ object SQLExecutor {
     s1.compareTo(s2)
   }
 
-  private def getSelectedFieldName(strField: String, talias: String, fields: Seq[Field]) = {
-    val oField: Option[Field] = fields.find(f => f.name == s"$talias.$field" || f.name == strField ||
-      f.name == s"$table.$field")
-    oField match {
+  private def getFullSelectedFieldName(dbFieldName: String, table: String, talias: String, selectedFields: Seq[Field]) = {
+    val oSelectedField: Option[Field] = selectedFields.find(sf => sf.name == s"$talias.$dbFieldName" || sf.name == dbFieldName ||
+      sf.name == s"$table.$dbFieldName" || (sf.alias.nonEmpty && sf.alias.get == dbFieldName))
+    oSelectedField match {
       case Some(field) =>
         field.alias match {
           case Some(alias) => Some(alias)
           case None        =>
-            if (strField == "*" || strField.contains("."))
-              Some(s"$talias.${field.name}")
+            if (field.name == "*" || field.name.contains("."))
+              Some(s"${field.name}")
             else
-              Some(strField)
+              Some(dbFieldName)
         }
-      case None => fields.find(f => f.name == "*") match {
-        case Some(_) => Some(s"$talias.$strField")
+      case None => selectedFields.find(f => f.name == "*") match {
+        case Some(_) => Some(s"$talias.$dbFieldName")
         case None    => None
       }
     }

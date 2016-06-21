@@ -28,16 +28,36 @@ class MapDBTest extends WordSpecLike with MustMatchers with DBCreator {
         Map("id" -> 1, "pid" -> 3, "age" -> 58),
         Map("id" -> 2, "pid" -> 4, "age" -> 47)))
   
+    val smallDB = Map("people" ->
+      Seq(
+        Map("id" -> 1, "name" -> "John Smith"),
+        Map("id" -> 11, "name" -> "John Smith"),
+        Map("id" -> 10, "name" -> "John Smith"),
+        Map("id" -> 20, "name" -> "John Smith"),
+        Map("id" -> 22, "name" -> "John Smith"),
+        Map("id" -> 3, "name" -> "George Cloony"),
+        Map("id" -> 4, "name" -> "Samantha Fox"),
+        Map("id" -> 5, "name" -> "Gery Holowell"),
+        Map("id" -> 6, "name" -> "Sasha Baron Coen"),
+        Map("id" -> 8, "name" -> "Sasha Baron Coen"),
+        Map("id" -> 6, "name" -> "Michael Douglas"),
+        Map("id" -> 6, "name" -> "Silverster Stallone"),
+        Map("id" -> 7, "name" -> "Michael Douglas"),
+        Map("id" -> 7, "name" -> "Brad Pitt")
+        )
+    )
+      
   "SQLCheck should parse and execute select statement on manually prepared data and" should {
-    "do that with comparison" in {
+    "do that with comparison and project with plain names" in {
 
       val resultSet = executeSelect(db, """select id, name from people where id < 3""")
 
-      resultSet.map { row =>
-        info(s"""${row("id")}: ${row("name")}""")
-      }
+      (resultSet.map { row =>
+        val rStr = s"""${row("id")}: ${row("name")}"""
+        info(rStr)
+        rStr
+      }) mustBe Seq("2: John Smith", "1: Joe Doe")
 
-      resultSet.length mustBe 2
     }
 
     "do that with several tables joined and aliases used" in {
@@ -54,24 +74,7 @@ class MapDBTest extends WordSpecLike with MustMatchers with DBCreator {
 
     "do that with order check" in {
 
-      val smallDB = Map("people" ->
-        Seq(
-          Map("id" -> 1, "name" -> "John Smith"),
-          Map("id" -> 11, "name" -> "John Smith"),
-          Map("id" -> 10, "name" -> "John Smith"),
-          Map("id" -> 20, "name" -> "John Smith"),
-          Map("id" -> 22, "name" -> "John Smith"),
-          Map("id" -> 3, "name" -> "George Cloony"),
-          Map("id" -> 4, "name" -> "Samantha Fox"),
-          Map("id" -> 5, "name" -> "Gery Holowell"),
-          Map("id" -> 6, "name" -> "Sasha Baron Coen"),
-          Map("id" -> 8, "name" -> "Sasha Baron Coen"),
-          Map("id" -> 6, "name" -> "Michael Douglas"),
-          Map("id" -> 6, "name" -> "Silverster Stallone"),
-          Map("id" -> 7, "name" -> "Michael Douglas"),
-          Map("id" -> 7, "name" -> "Brad Pitt")
-          )
-      )
+
       
       val resultSet = executeSelect(smallDB, """select * from people AS p ORDER BY p.id DESC, p.name ASC""")
 
@@ -126,6 +129,19 @@ class MapDBTest extends WordSpecLike with MustMatchers with DBCreator {
       }
 
       resultSet.length mustBe 4
+    }
+
+    "do that with distinct values" in {
+
+      val resultSet = executeSelect(smallDB, """select distinct p.name from people AS p""")
+
+      println(resultSet)
+      
+      resultSet.map { row =>
+        info(s"""${row("p.name")}""")
+      }
+
+      //resultSet.length mustBe 4
     }
     
     
