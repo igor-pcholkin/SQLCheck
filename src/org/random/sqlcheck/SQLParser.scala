@@ -13,11 +13,11 @@ object SQLParser extends JavaTokenParsers with ParserUtils with SQLParserHelpers
   type ResultSet = Seq[TRow]
 
   def select =
-    (("SELECT".ic ~ "DISTINCT".ic.?) ~> fields) ~
+    ("SELECT".ic ~> "DISTINCT".ic.?) ~ fields ~
       ("FROM".ic ~> tables) ~
       ("WHERE".ic ~> whereConditions).?  ~
-      ("ORDER BY".ic ~> orderColumns).? ^^ { case fields ~ tables ~ wheres ~ orderColumns => 
-        buildSelect(fields, tables, wheres, orderColumns) 
+      ("ORDER BY".ic ~> orderColumns).? ^^ { case distinct ~ fields ~ tables ~ wheres ~ orderColumns => 
+        buildSelect(fields, tables, wheres, orderColumns, distinct) 
       }
 
   def fields = rep1sep(fieldSpec, ",")

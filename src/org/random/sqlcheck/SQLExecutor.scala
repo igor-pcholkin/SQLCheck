@@ -36,7 +36,7 @@ object SQLExecutor {
     val conditions = sc.withDefault { _ => sc.getOrElse(startTableAlias, sc.getOrElse(None, Nil)) } (Some(startTableName))
     val conditionsCheck = conditions.foldLeft((rs: EResultSet) => rs)(_ compose _)
     val outputResultSet = conditionsCheck(EResultSet(inputResultSet, select, db))
-    order(select, project(outputResultSet))
+    order(select, distinct(select, project(outputResultSet)))
   }  
   
   private def getStartTable(select: Select) = {
@@ -61,17 +61,17 @@ object SQLExecutor {
     })
   }
   
-  private def project(outputResultSet: EResultSet): Seq[Row] = {
-    outputResultSet.rs.map { trow =>
+  private def project(ers: EResultSet): Seq[Row] = {
+    ers.rs.map { trow =>
       Row(trow.foldLeft(Map[String, Any]())((crow, t1row) => {
         val (table, row) = t1row
         crow ++ row.contents.foldLeft(Map[String, Any]())((r, pair) => {
           val (dbFieldName,value) = pair
-          val oTable: Option[Table] = outputResultSet.select.tables.find(t => t.name == table)
+          val oTable: Option[Table] = ers.select.tables.find(t => t.name == table)
           val talias = oTable.map { t =>
             t.alias.getOrElse(t.name)
           }.getOrElse("")
-          val oSelectedFieldName = getFullSelectedFieldName(dbFieldName, table, talias, outputResultSet.select.fields)
+          val oSelectedFieldName = getFullSelectedFieldName(dbFieldName, table, talias, ers.select.fields)
           oSelectedFieldName match {
             case Some(selectedFieldName) => r + (selectedFieldName -> value)
             case None => r
@@ -79,6 +79,13 @@ object SQLExecutor {
         })
       }))
     }
+  }
+  
+  private def distinct(select: Select, ors: Seq[Row]): Seq[Row] = {
+    if (select.distinct)
+      ors.distinct
+    else
+      ors
   }
   
   private def order(select: Select, outputResultSet: Seq[Row]): Seq[Row] = {

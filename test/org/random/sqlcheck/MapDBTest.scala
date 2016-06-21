@@ -135,13 +135,11 @@ class MapDBTest extends WordSpecLike with MustMatchers with DBCreator {
 
       val resultSet = executeSelect(smallDB, """select distinct p.name from people AS p""")
 
-      println(resultSet)
-      
       resultSet.map { row =>
         info(s"""${row("p.name")}""")
       }
 
-      //resultSet.length mustBe 4
+      resultSet.length mustBe 8
     }
     
     

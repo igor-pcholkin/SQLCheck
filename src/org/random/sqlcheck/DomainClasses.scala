@@ -33,7 +33,7 @@ case class WhereCondition(field: String, value: String)
 case class EResultSet(rs: ResultSet, select: Select, db: DB)
 case class Order(column: (Option[String], String), asc: Boolean)
 case class Select(fields: Seq[Field], tables: Seq[Table], conditions: Map[Option[String], Seq[EResultSet => EResultSet]],
-                  orderCols: Seq[Order], primaryTable: Option[String])
+                  orderCols: Seq[Order], primaryTable: Option[String], distinct: Boolean)
 
 class JoinType
 case object InnerJoin extends JoinType

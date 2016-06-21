@@ -94,7 +94,7 @@ trait SQLParserHelpers {
   }
   
   def buildSelect(fields: Seq[Field], tableSpecs: Seq[TableSpec], oWheres: Option[Map[Option[String], Seq[EResultSet => EResultSet]]], 
-      orderColumns: Option[Seq[Order]]) = {
+      orderColumns: Option[Seq[Order]], distinct: Option[String]) = {
     val tables = for {
       tspec <- tableSpecs
       table <- tspec.table :: tspec.joins.map(_.table)
@@ -112,7 +112,7 @@ trait SQLParserHelpers {
       join <- tspec.joins 
     } yield (join.primaryTable)).find(pt => pt != None).flatten
     
-    Select(fields, tables, conditions, orderColumns.getOrElse(Seq[Order]()), primaryTable)
+    Select(fields, tables, conditions, orderColumns.getOrElse(Seq[Order]()), primaryTable, distinct.nonEmpty)
   }
 
   def bindToJoinType(joinType: JoinType, filters: Seq[(Option[String], (JoinType, EResultSet) => EResultSet)]):
