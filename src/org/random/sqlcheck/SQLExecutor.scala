@@ -2,8 +2,9 @@
 
 package org.random.sqlcheck
 
+import scala.util.Try
+
 import SQLParser._
-import scala.util.{Try}
 
 object SQLExecutor {
   import SQLParser._
@@ -27,6 +28,23 @@ object SQLExecutor {
     }
   }
 
+  def validateSelect(db: DB, select: String, boundValues: Seq[Any]): Unit = {
+    val boundSelect = bindValues(select, boundValues)
+    validateSelect(db, boundSelect)
+  }
+
+  def validateSelect(db: DB, select: String, boundValues: Map[String, Any]): Unit = {
+    val boundSelect = bindValues(select, boundValues)
+    validateSelect(db, boundSelect)
+  }
+  
+  def validateSelect(db: DB, select: String): Try[Boolean] = {
+    SQLParser.parseAll(SQLParser.select, select) match {
+      case SQLParser.Success(sel, _) => scala.util.Success(true)
+      case ex@_ => scala.util.Failure(new RuntimeException("Unsuccessful parse: " + ex))
+    }
+  }
+  
   private def doExecute(db: DB, select: Select): Seq[Row] = {
     val startTable = getStartTable(select) 
     val startTableName = startTable.name

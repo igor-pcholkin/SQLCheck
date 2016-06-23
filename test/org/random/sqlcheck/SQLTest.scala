@@ -3,6 +3,9 @@ package org.random.sqlcheck
 import org.scalatest.WordSpecLike
 import org.scalatest.MustMatchers
 import SQLExecutor._
+import scala.util.Try
+import scala.util.Success
+import scala.util.Failure
 
 /**
  * Tests with DB constructed from CSV files each representing a separate table in the DB.
@@ -93,6 +96,22 @@ class SQLTest extends WordSpecLike with MustMatchers with DBCreator {
       val resultSet = executeSelect(db, """select country from gdp where country like "C%" order by country ASC""") 
 
       resultSet.map { _("country") } mustBe Seq("Canada", "Chile", "Croatia", "Cyprus", "Czech Republic") 
+    }
+  }
+  
+  "SQLCheck" should {
+    "validate correct select" in {
+      validateSelect(db, """select country from gdp where country like "C%" order by country ASC""") match {
+        case Success(_) => 
+        case Failure(ex) => fail("Validation should execute successfully")
+      }
+    }
+
+    "validate incorrect select" in {
+      validateSelect(db, """select * from gdp country like "C%" order by country ASC""") match {
+        case Success(_) => fail("Validation should fail")
+        case Failure(ex) => 
+      }
     }
   }
 }
